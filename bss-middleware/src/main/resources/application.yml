@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: bss-middleware
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/telcostream
+    username: bss
+    password: bss_pw
+    hikari:
+      maximum-pool-size: 10
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 500
+        order_inserts: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: bss-middleware-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    listener:
+      concurrency: 3
+      ack-mode: manual_immediate
+
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  port: 8080
+  shutdown: graceful
+
+# --- App-specific settings ---
+bss:
+  topics:
+    raw-cdrs: raw-network-cdrs
+    dlq: raw-network-cdrs-dlq
+  rating:
+    voice-per-minute: 1.20
+    sms-per-message: 0.30
+    data-per-mb: 0.50
+  batch:
+    max-size: 500
+    max-interval-ms: 2000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+logging:
+  level:
+    com.telcostream.bss: INFO
