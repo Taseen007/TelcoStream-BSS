@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TelcoStream-BSS — Operator Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0b0e11;
+    --panel: #12171c;
+    --panel-border: #232b32;
+    --amber: #ffb020;
+    --amber-dim: #7a5a17;
+    --teal: #2dd4bf;
+    --red: #ff5c5c;
+    --text-primary: #e8edf2;
+    --text-muted: #7c8a97;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg-deep);
+    background-image:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255,176,32,0.06), transparent),
+      radial-gradient(ellipse 900px 500px at 85% 0%, rgba(45,212,191,0.05), transparent);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    min-height: 100vh;
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--panel-border);
+    background: rgba(18,23,28,0.8);
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-mark {
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    color: var(--amber);
+  }
+
+  .brand-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.04em;
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 8px var(--teal);
+    animation: pulse 2s infinite ease-in-out;
+  }
+  .pulse-dot.down {
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red);
+    animation: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  main {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 28px;
+  }
+
+  .meters {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .meter {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .meter::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber-line, var(--amber)), transparent);
+  }
+
+  .meter-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .meter-value {
+    font-family: var(--mono);
+    font-size: 30px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--amber);
+    transition: opacity 0.15s ease;
+  }
+
+  .meter-value.teal { color: var(--teal); }
+
+  .meter-value.flash { opacity: 0.4; }
+
+  .meter-unit {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-left: 6px;
+  }
+
+  .panels {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 16px;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 20px;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+
+  thead th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  tbody td {
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(35,43,50,0.6);
+    color: var(--text-primary);
+  }
+
+  tbody tr:first-child td {
+    color: var(--teal);
+  }
+
+  .svc-VOICE { color: var(--amber); }
+  .svc-SMS { color: var(--teal); }
+  .svc-DATA { color: #8ab4ff; }
+
+  .feed-wrap {
+    max-height: 460px;
+    overflow-y: auto;
+  }
+
+  .lookup-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    background: var(--bg-deep);
+    border: 1px solid var(--panel-border);
+    color: var(--text-primary);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 9px 10px;
+    border-radius: 4px;
+  }
+  input[type="text"]:focus { outline: 1px solid var(--amber); border-color: var(--amber); }
+
+  button {
+    background: var(--amber);
+    color: #1a1305;
+    border: none;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 9px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+
+  .balance-readout {
+    font-family: var(--mono);
+    font-size: 26px;
+    color: var(--teal);
+    margin-bottom: 22px;
+    min-height: 34px;
+  }
+  .balance-readout.negative { color: var(--red); }
+  .balance-readout .msisdn-label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  .sparkline {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 60px;
+    margin-top: 8px;
+  }
+  .spark-bar {
+    flex: 1;
+    background: var(--teal);
+    opacity: 0.85;
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+    transition: height 0.4s ease;
+  }
+
+  .empty-state {
+    color: var(--text-muted);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    padding: 12px 0;
+  }
+
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 11px;
+    padding: 24px 0 8px;
+  }
+
+  @media (max-width: 860px) {
+    .meters { grid-template-columns: repeat(2, 1fr); }
+    .panels { grid-template-columns: 1fr; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-dot { animation: none; }
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-mark">TELCOSTREAM-BSS</span>
+    <span class="brand-sub">Operator Console</span>
+  </div>
+  <div class="status">
+    <span class="pulse-dot" id="pulseDot"></span>
+    <span id="statusText">connecting…</span>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<main>
+  <section class="meters">
+    <div class="meter">
+      <div class="meter-label">Total Invoices</div>
+      <div class="meter-value" id="mTotalInvoices">—</div>
+    </div>
+    <div class="meter">
+      <div class="meter-label">Total Revenue</div>
+      <div class="meter-value" id="mTotalRevenue">—<span class="meter-unit">Tk</span></div>
+    </div>
+    <div class="meter">
+      <div class="meter-label">Invoices / min</div>
+      <div class="meter-value teal" id="mInvPerMin">—</div>
+    </div>
+    <div class="meter">
+      <div class="meter-label">Revenue / min</div>
+      <div class="meter-value teal" id="mRevPerMin">—<span class="meter-unit">Tk</span></div>
+    </div>
+  </section>
+
+  <section class="panels">
+    <div class="panel">
+      <div class="panel-title">
+        <span>Live CDR Feed</span>
+        <span id="feedCount"></span>
+      </div>
+      <div class="feed-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Subscriber</th>
+              <th>Type</th>
+              <th>Charge (Tk)</th>
+              <th>Cell</th>
+            </tr>
+          </thead>
+          <tbody id="feedBody">
+            <tr><td colspan="5" class="empty-state">Waiting for invoices…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span>Subscriber Lookup</span></div>
+      <div class="lookup-row">
+        <input type="text" id="msisdnInput" placeholder="e.g. 8801700000001" />
+        <button id="lookupBtn">Check</button>
+      </div>
+      <div class="balance-readout" id="balanceReadout">
+        <span class="msisdn-label">&nbsp;</span>
+        —
+      </div>
+
+      <div class="panel-title"><span>Throughput (last ~60s)</span></div>
+      <div class="sparkline" id="sparkline"></div>
+    </div>
+  </section>
+
+  <footer>TelcoStream-BSS · polling /api/stats + /api/invoices · read-only console, no auth (demo build)</footer>
+</main>
+
+<script>
+  const API_BASE = window.API_BASE || 'http://localhost:8080';
+  const sparkHistory = [];
+  const MAX_SPARK_POINTS = 20;
+
+  function fmtNumber(n) {
+    return Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+  function fmtMoney(n) {
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function fmtTime(iso) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-GB', { hour12: false });
+  }
+
+  function flash(el) {
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 150);
+  }
+
+  function setValue(id, text) {
+    const el = document.getElementById(id);
+    const unit = el.querySelector('.meter-unit');
+    const newHtml = unit ? text + unit.outerHTML : text;
+    if (el.innerHTML !== newHtml) {
+      flash(el);
+      el.innerHTML = newHtml;
+    }
+  }
+
+  async function pollStats() {
+    try {
+      const res = await fetch(`${API_BASE}/api/stats`);
+      if (!res.ok) throw new Error('bad response');
+      const data = await res.json();
+
+      setValue('mTotalInvoices', fmtNumber(data.totalInvoices));
+      setValue('mTotalRevenue', fmtMoney(data.totalRevenue));
+      setValue('mInvPerMin', fmtNumber(data.invoicesLastMinute));
+      setValue('mRevPerMin', fmtMoney(data.revenueLastMinute));
+
+      sparkHistory.push(Number(data.invoicesLastMinute));
+      if (sparkHistory.length > MAX_SPARK_POINTS) sparkHistory.shift();
+      renderSparkline();
+
+      setStatus(true);
+    } catch (e) {
+      setStatus(false);
+    }
+  }
+
+  function renderSparkline() {
+    const container = document.getElementById('sparkline');
+    const max = Math.max(1, ...sparkHistory);
+    container.innerHTML = sparkHistory.map(v => {
+      const h = Math.max(2, Math.round((v / max) * 56));
+      return `<div class="spark-bar" style="height:${h}px" title="${v}"></div>`;
+    }).join('');
+  }
+
+  async function pollFeed() {
+    try {
+      const res = await fetch(`${API_BASE}/api/invoices`);
+      if (!res.ok) throw new Error('bad response');
+      const invoices = await res.json();
+
+      const body = document.getElementById('feedBody');
+      document.getElementById('feedCount').textContent = `${invoices.length} shown`;
+
+      if (!invoices.length) {
+        body.innerHTML = `<tr><td colspan="5" class="empty-state">No invoices yet — start the CDR generator.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = invoices.slice(0, 25).map(inv => `
+        <tr>
+          <td>${fmtTime(inv.createdAt)}</td>
+          <td>${inv.callingNumber}</td>
+          <td class="svc-${inv.serviceType}">${inv.serviceType}</td>
+          <td>${fmtMoney(inv.chargedAmount)}</td>
+          <td>${inv.locationCellId ?? '—'}</td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      // leave last known feed on screen; status indicator already reflects the outage
+    }
+  }
+
+  function setStatus(up) {
+    const dot = document.getElementById('pulseDot');
+    const text = document.getElementById('statusText');
+    if (up) {
+      dot.classList.remove('down');
+      text.textContent = 'live';
+    } else {
+      dot.classList.add('down');
+      text.textContent = 'api unreachable';
+    }
+  }
+
+  async function lookupBalance() {
+    const msisdn = document.getElementById('msisdnInput').value.trim();
+    const readout = document.getElementById('balanceReadout');
+    if (!msisdn) return;
+
+    readout.innerHTML = `<span class="msisdn-label">${msisdn}</span>checking…`;
+    try {
+      const res = await fetch(`${API_BASE}/api/balance/${encodeURIComponent(msisdn)}`);
+      if (!res.ok) throw new Error('bad response');
+      const data = await res.json();
+      const balance = Number(data.balance);
+      readout.classList.toggle('negative', balance < 0);
+      readout.innerHTML = `<span class="msisdn-label">${data.msisdn}</span>${fmtMoney(balance)} Tk`;
+    } catch (e) {
+      readout.classList.remove('negative');
+      readout.innerHTML = `<span class="msisdn-label">${msisdn}</span>lookup failed`;
+    }
+  }
+
+  document.getElementById('lookupBtn').addEventListener('click', lookupBalance);
+  document.getElementById('msisdnInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') lookupBalance();
+  });
+
+  function tickClock() {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  }
+
+  tickClock();
+  setInterval(tickClock, 1000);
+  pollStats();
+  pollFeed();
+  setInterval(pollStats, 2000);
+  setInterval(pollFeed, 3000);
+</script>
+
+</body>
+</html>
