@@ -1,0 +1,21 @@
+# Java / Maven
+bss-middleware/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Python
+cdr-generator/.venv/
+cdr-generator/__pycache__/
+*.pyc
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Docker / env
+.env
