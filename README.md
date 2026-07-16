@@ -1,228 +1,133 @@
 # TelcoStream-BSS
 
-TelcoStream-BSS is a telecom BSS demo project that shows how a CDR charging pipeline works end to end:
+A real-time CDR (Call Detail Record) processing and charging engine that simulates the core billing pipeline of a telecom BSS system — the kind of infrastructure operators like Grameenphone, Robi, and Banglalink run internally, and that vendors like Huawei, Amdocs, and Netcracker build for them.
 
-- CDRs are generated or ingested
-- Kafka carries the events
-- Spring Boot validates, rates, and batches them
-- Redis tracks prepaid balances and idempotency
-- PostgreSQL stores invoices
-- a browser dashboard shows live operational output
+The system generates simulated call/SMS/data events, streams them through Kafka, validates and rates them in a Spring Boot service, checks and deducts prepaid balances in Redis, and writes the resulting invoices to PostgreSQL in batches. A small operator dashboard shows the pipeline running live.
 
-This is a portfolio-style project, but it is built around the same architecture patterns used in real telecom backends.
-
-## What is real and what is simulated
-
-Real-world-ready parts:
-
-- Kafka-based event flow
-- Redis-backed balance/idempotency checks
-- PostgreSQL invoice storage
-- batched writes for scale
-- DLQ handling for bad or fraudulent messages
-- live dashboard for operator visibility
-- graceful shutdown and service separation
-
-Simulated parts:
-
-- generated CDRs
-- fake subscriber numbers
-- demo tariff values
-- demo prepaid balances
-
-So the project is not live operator billing data, but the pipeline structure is real-world-like and can be turned into a real-data system later.
-
-## Why this project is useful
-
-This project is good for showing that you understand:
-
-1. event ingestion at telecom scale
-2. charging and rating logic
-3. idempotency and duplicate protection
-4. prepaid balance management
-5. batch persistence into PostgreSQL
-6. dashboard/ops visibility
-7. DLQ handling for invalid records
-
-If you do not have access to a telecom operator, this is still a strong showcase because the system design is correct and explainable.
-
-## What the amounts mean
-
-The amounts shown in the dashboard are charges calculated from the generated CDR usage:
-
-- `VOICE` is charged by duration
-- `SMS` is charged per message
-- `DATA` is charged by megabytes
-
-The displayed currency is `Tk`, which means Bangladeshi Taka. In this project it is just the demo billing currency used in the tariff rules.
-
-These amounts are calculated values, not real customer billing data.
-
-## High-level architecture
-
-```text
-[CDR Generator / Ingestor]
-          |
-          v
-[Kafka: raw-network-cdrs] -----> [DLQ: raw-network-cdrs-dlq]
-          |
-          v
-[Spring Boot BSS Middleware]
-   |            |            |
-   |            |            +--> [PostgreSQL invoices]
-   |            +----------------> [Redis balances + idempotency]
-   +-----------------------------> [Dashboard APIs]
-                                      |
-                                      v
-                               [Operator Console]
+```
+[CDR Generator]  --(JSON)-->  [Kafka: raw-network-cdrs]  --> [BSS Middleware]
+                                                                  |
+                                              +-------------------+-------------------+
+                                              |                                       |
+                                        [Redis balance]                    [Kafka: raw-network-cdrs-dlq]
+                                              |                              (rejected/fraud CDRs)
+                                              v
+                                     [PostgreSQL invoices] <-- batched writes
+                                              ^
+                                              |
+                                   [REST API: /api/invoices, /api/balance, /api/stats]
 ```
 
-## Current stack
+## Why I built this
 
-| Layer | Technology |
-| --- | --- |
-| Middleware | Spring Boot |
-| Streaming | Kafka |
-| Cache | Redis |
-| Database | PostgreSQL |
-| Generator | Python |
-| UI | Static HTML/CSS/JS |
-| Orchestration | Docker Compose |
+Telecom billing systems come down to three hard problems: ingesting a high-volume, messy event stream reliably; rating those events against a tariff in real time without double-charging anyone; and writing the results to a database at a rate it can actually sustain. I wanted a project that forced me to deal with all three properly instead of a toy CRUD app, so this pipeline handles idempotency, batched writes, a dead-letter queue for bad data, and graceful shutdown — the same concerns a real BSS team deals with day to day.
 
-## How the dashboard works
+The data is entirely simulated. I'm not connected to a real telecom operator, so a Python script plays the role of the network, generating call/SMS/data events (with a small percentage of deliberately malformed ones so the validation logic has something real to catch).
 
-The dashboard at `http://localhost:8082` polls the middleware APIs:
+## Tech stack
 
-- `/api/stats`
-- `/api/invoices`
-- `/api/balance/{msisdn}`
+| Layer | Choice | Why |
+|---|---|---|
+| Middleware | Java 17 + Spring Boot 3 | Standard stack for BSS vendors (Huawei/Amdocs/Netcracker are Java-heavy) |
+| Streaming | Apache Kafka (KRaft mode) | Industry standard for CDR ingestion |
+| Cache | Redis | Sub-millisecond prepaid balance checks |
+| Database | PostgreSQL | Durable invoice storage with batched writes |
+| CDR simulator | Python | Fast to iterate on, easy to inject fraud/malformed records |
+| Dashboard | Static HTML/CSS/JS, no build step | Live view of the pipeline for demos |
+| Orchestration | Docker Compose | Everything spins up with one command |
 
-It shows:
+## Project structure
 
-- total invoices
-- total revenue
-- invoices per minute
-- revenue per minute
-- live invoice feed
-- subscriber balance lookup
-- throughput sparkline
-
-The dashboard does not show raw Kafka messages. It shows processed billing output from the middleware.
-
-## How to showcase this project well
-
-If you want to present this without real operator access, say:
-
-> “This is a telecom charging-engine prototype that simulates CDR ingestion, rating, idempotent balance handling, batch invoice persistence, and operator visibility.”
-
-That is the honest and strong way to explain it.
-
-For a demo, show these three things:
-
-1. start the generator for a short period
-2. show invoices increasing on the dashboard
-3. open the API and prove the numbers match
-
-This is enough to demonstrate a real telecom backend workflow.
-
-## What you can make real without operator access
-
-Even without a telecom network operator, you can still make these parts more realistic:
-
-- use realistic tariff tables
-- use more realistic CDR schemas
-- add more service types and charging rules
-- seed anonymized subscriber data
-- add real validation rules
-- add better audit logs
-- add authentication for the dashboard
-- add metrics and alerts
-- use test files that look like production CDR exports
-
-These changes make the project closer to real-world engineering without needing actual operator systems.
-
-## What a real-data version would need
-
-To move from demo mode to real data mode, you would need:
-
-- real CDR input from files, Kafka, or an integration endpoint
-- real tariff rules or a tariff configuration service
-- real subscriber/account mapping
-- proper access control
-- stronger observability and alerting
-- production-grade data retention and reconciliation
-
-## Repository layout
-
-```text
+```
 telcostream-bss/
-├── docker-compose.yml
+├── docker-compose.yml              # Kafka, Redis, Postgres, Adminer, middleware, dashboard, generator
 ├── sql/
-│   └── init.sql
-├── cdr-generator/
+│   └── init.sql                    # DB schema
+├── cdr-generator/                  # Simulated telecom network
 │   ├── generator.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── dashboard/
+├── dashboard/                      # Live operator console
 │   └── index.html
-└── bss-middleware/
+└── bss-middleware/                 # The Spring Boot service
     ├── pom.xml
     ├── Dockerfile
     └── src/
         ├── main/java/com/telcostream/bss/
+        │   ├── BssMiddlewareApplication.java
         │   ├── config/
-        │   ├── consumer/
-        │   ├── controller/
-        │   ├── entity/
+        │   │   ├── KafkaConsumerConfig.java
+        │   │   ├── KafkaProducerConfig.java
+        │   │   ├── KafkaTopicConfig.java
+        │   │   └── RedisConfig.java
         │   ├── model/
+        │   │   ├── CdrRecord.java
+        │   │   └── ServiceType.java
+        │   ├── entity/
+        │   │   └── Invoice.java
         │   ├── repository/
-        │   └── service/
-        └── main/resources/application.yml
+        │   │   └── InvoiceRepository.java
+        │   ├── consumer/
+        │   │   └── CdrConsumer.java
+        │   ├── service/
+        │   │   ├── CdrValidationService.java
+        │   │   ├── RatingService.java
+        │   │   ├── BalanceService.java
+        │   │   └── InvoiceBatchService.java
+        │   └── controller/
+        │       ├── InvoiceController.java
+        │       ├── BalanceController.java
+        │       └── StatsController.java
+        ├── main/resources/application.yml
+        └── test/java/.../RatingServiceTest.java
 ```
 
-## How to run it
+## Running it
 
-Use separate terminals.
+**Prerequisites:** Java 17, Maven 3.9+, Docker Desktop, Python 3.10+.
 
-Terminal 1: start the stack
+1. **Start the infrastructure:**
+   ```bash
+   docker compose up -d zookeeper kafka redis postgres adminer
+   ```
+   Adminer (DB browser) is at `http://localhost:8081` — server `postgres`, user `bss`, password `bss_pw`, database `telcostream`.
 
-```bat
-cd /d "f:\TelcoStream BSS\TelcoStream-BSS"
-docker compose up -d zookeeper kafka redis postgres adminer dashboard bss-middleware
-```
+2. **Build and run the middleware:**
+   ```bash
+   cd bss-middleware
+   mvn clean package -DskipTests
+   docker compose up -d --build bss-middleware
+   ```
 
-Terminal 2: run the generator for a short test
+3. **Run the CDR generator** to start producing traffic:
+   ```bash
+   cd cdr-generator
+   python3 -m venv .venv && source .venv/bin/activate
+   pip install -r requirements.txt
+   python generator.py --rate 80 --fraud-rate 0.02
+   ```
 
-```bat
-cd /d "f:\TelcoStream BSS\TelcoStream-BSS\cdr-generator"
-.\.venv\Scripts\activate
-python generator.py --rate 80 --fraud-rate 0.02 --duration 30
-```
+4. **Open the dashboard:**
+   ```bash
+   docker compose up -d dashboard
+   ```
+   `http://localhost:8082` — live invoice feed, revenue meters, subscriber balance lookup.
 
-If you want even shorter testing, use `--duration 10` or `--duration 15`.
+5. **Check it directly:**
+   - `curl http://localhost:8080/api/invoices` — recent invoices
+   - `curl http://localhost:8080/api/balance/8801700000001` — a simulated subscriber's balance
+   - The DLQ topic (`raw-network-cdrs-dlq`) holds anything the validation layer rejected
 
-Terminal 3: check logs or query output
+## How the pipeline actually works
 
-```bat
-cd /d "f:\TelcoStream BSS\TelcoStream-BSS"
-docker compose logs --tail=100 bss-middleware
-```
+Every CDR goes through `CdrConsumer`: it's validated (reject negative durations, malformed timestamps, unknown service types), checked against a Redis idempotency set so a Kafka redelivery can never double-charge someone, rated against the tariff, and handed to `InvoiceBatchService`, which buffers invoices in memory and writes them to Postgres in batches of 500 or every 2 seconds — whichever comes first — instead of one row per event. Anything that fails validation goes to a dead-letter topic rather than being silently dropped, since losing billing-relevant data isn't an acceptable failure mode even in a demo project.
 
-API checks:
+## What I'd add next
 
-```bat
-curl http://localhost:8080/api/invoices?limit=10
-curl http://localhost:8080/api/balance/8801700000001
-```
+The core pipeline is complete and demonstrates the main BSS engineering concerns end to end, but there's a clear list of what a production version would need on top of this:
 
-Dashboard:
-
-- `http://localhost:8082`
-
-## Design decisions worth explaining
-
-- Idempotency is handled using Redis so duplicate messages do not double-charge.
-- Invoices are batched before database writes to reduce pressure on PostgreSQL.
-- DLQ is used for invalid or fraudulent records instead of silently dropping them.
-- The dashboard reads from the API, so it reflects processed billing output, not raw messages.
-- The generator is synthetic by design, so the system can be tested safely without operator data.
+- **Postpaid billing** — bundles, rollover, and a `TariffType` to switch between prepaid and postpaid rating logic
+- **Monitoring** — Prometheus + Grafana wired into the existing `/actuator/prometheus` endpoint
+- **Bulk-load writes** — replacing the batched JPA `saveAll()` with a JDBC `COPY`-based loader to compare throughput at higher volume
+- **Locked-down dashboard access** — the dashboard currently allows CORS from any origin and has no auth, which is fine for a local demo but not for anything exposed beyond my own machine
+- **Atomic balance deduction** — the current Redis balance update is a read-then-write, which has a small race-condition window under concurrent charges to the same subscriber; a Lua script would make it atomic
