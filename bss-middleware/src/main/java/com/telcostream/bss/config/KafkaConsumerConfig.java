@@ -1,6 +1,6 @@
 package com.telcostream.bss.config;
 
-import com.telcostream.bss.model.CdrRecord;
+
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
